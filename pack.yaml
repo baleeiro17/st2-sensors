@@ -1,0 +1,12 @@
+
+ref: test
+name: Testing StackStorm
+description: Simple pack containing examples of sensor, rule, and action for testing stack-storm
+keywords:
+    - testing
+    - test
+version: 0.0.1
+author: st2
+email: st2@stackstorm.com
+contributors:
+  - lucas <lucas@stackstorm.com>"

@@ -1,0 +1,9 @@
+simulation_portal:
+    description: "Dashbord API configuration"
+    type: "object"
+    required: true
+    properties:
+        address:
+            type: "string"
+            description: "where to reach the Dashboard API"
+            required: true

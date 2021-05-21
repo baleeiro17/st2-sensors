@@ -1,0 +1,9 @@
+name: rule1
+description: "rule"
+enabled: true
+trigger:
+    type: test.start_trigger
+action:
+    ref: "core.local"
+    parameters:
+        cmd: "echo \"{{trigger.body}}\""

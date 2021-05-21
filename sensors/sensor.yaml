@@ -1,0 +1,12 @@
+class_name: "portal_sensor"
+entry_point: "sensor.py"
+description: "polling the api for reservations"
+poll_interval: 60000
+trigger_types:
+    - name: "start_trigger"
+      descrition: "trigger"
+      payload_schema:
+          type: "object"
+          properties:
+              job_id:
+                  type: string
