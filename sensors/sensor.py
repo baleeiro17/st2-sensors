@@ -3,7 +3,7 @@ import json
 from st2reactor.sensor.base import PollingSensor
 
 
-class sdnm_sensor(PollingSensor):
+class portal_sensor(PollingSensor):
 
     def setup(self):
         self.logger = self.sensor_service.get_logger(
