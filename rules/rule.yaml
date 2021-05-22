@@ -6,4 +6,4 @@ trigger:
 action:
     ref: "core.local"
     parameters:
-        cmd: "echo \"{{trigger.body}}\" >> ~/st2.sample.out ; sync"
+        cmd: "echo \"{{trigger.image}}\" >> ~/st2.sample.out ; sync"
