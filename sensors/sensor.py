@@ -20,7 +20,7 @@ class portal_sensor(PollingSensor):
 
             # dispatch trigger
             self.sensor_service.dispatch(
-                trigger=".start_trigger",
+                trigger="test.start_trigger",
                 payload={"job_id": "job_" + str(job_data['_id'])}
             )
         except Exception as e:
