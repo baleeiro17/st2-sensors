@@ -4,10 +4,10 @@ import json
 import sys
 
 
-class ChangeJobStatus(Action):
+class SendPut(Action):
     def __init__(self, config=None):
-        super(ChangeJobStatus, self).__init__(config=config)
-        self.address_portal = self._config['simulation_portal']['address']
+        super(SendPut, self).__init__(config=config)
+        self.address_portal = config['simulation_portal']['address']
 
     def run(self, job_id=None, job_status=None):
         """
