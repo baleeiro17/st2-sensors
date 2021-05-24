@@ -1,4 +1,4 @@
-name: "send_sms"
+name: main_action
 runner_type: "python-script"
 description: "Test put command in http server"
 enabled: true
