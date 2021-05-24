@@ -22,9 +22,7 @@ class portal_sensor(PollingSensor):
             self.sensor_service.dispatch(
                 trigger="test.start_trigger",
                 payload={
-                    "job_id": "job_" + str(job_data['_id']),
-                    "hostname": str(job_data['template']['metadata']['baremetal']['hostname']),
-                    "image": str(job_data['template']['metadata']['baremetal']['image'])
+                    "job_id": "job_" + str(job_data['_id'])
                 }
             )
         except Exception as e:

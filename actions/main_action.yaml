@@ -1,0 +1,12 @@
+name: "send_sms"
+runner_type: "python-script"
+description: "Test put command in http server"
+enabled: true
+entry_point: "scripts/send_put.py"
+parameters:
+ job_id:
+   type: "string"
+   required: true
+ job_status:
+   type: "string"
+   default: "reserved"

@@ -4,6 +4,6 @@ enabled: true
 trigger:
     type: test.start_trigger
 action:
-    ref: "core.local"
+    ref: "test.main_action"
     parameters:
-        cmd: "echo \"{{trigger.image}}\" >> ~/st2.sample.out ; sync"
+        job_id: "{{ trigger.job_id }}"
