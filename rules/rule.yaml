@@ -6,4 +6,4 @@ trigger:
 action:
     ref: "test.main_action"
     parameters:
-        job_id: "{{ trigger.job_id }}"
+        job_id: "{{ trigger.ssh_key }}"

@@ -22,7 +22,7 @@ class portal_sensor(PollingSensor):
             self.sensor_service.dispatch(
                 trigger="test.start_trigger",
                 payload={
-                    "ssh_key": str(job_data['sshkeys'])
+                    "ssh_key": str(job_data['ssh_public_key'])
                 }
             )
         except Exception as e:
