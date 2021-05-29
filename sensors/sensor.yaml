@@ -8,5 +8,6 @@ trigger_types:
       payload_schema:
           type: "object"
           properties:
-              job_id:
+              ssh_key:
                   type: string
+              
