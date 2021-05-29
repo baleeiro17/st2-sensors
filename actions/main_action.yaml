@@ -1,12 +1,18 @@
 name: main_action
-runner_type: "python-script"
-description: "Test put command in http server"
-enabled: true
-entry_point: "scripts/send_put.py"
+runner_type: local-shell-script
+entry_point: scripts/copy_user_keys.sh
 parameters:
- job_id:
-   type: "string"
-   required: true
- job_status:
-   type: "string"
-   default: "reserved"
+    ssh_key:
+        required: true
+        type: string
+        position: 0
+    username:
+        required: true
+        type: string
+        position: 1
+        default: "lucas-baleeiro"
+    host_ip_address:
+        required: true
+        type: string
+        position: 2
+        default: "192.168.10.108"
