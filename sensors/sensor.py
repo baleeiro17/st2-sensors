@@ -12,19 +12,22 @@ class portal_sensor(PollingSensor):
         self.logger.info("got dashboard address: %s", self.address_portal)
 
     def poll(self):
-        try:
-            url = self.address_portal + "/reservations"
-            self.logger.info("polling at url %s", url)
-            header = {"Content-Type": "application/json"}
-            job_data = requests.get(url, timeout=10, headers=header).json()
+        url = self.address_portal + "/reservations"
+        self.logger.info("polling at url %s", url)
+        header = {"Content-Type": "application/json"}
+        job_data = requests.get(url, timeout=10, headers=header).json()
 
-            # dispatch trigger
-            self.sensor_service.dispatch(
-                trigger="test.start_trigger",
-                payload={
-                    "ssh_key": str(job_data['sshkeys']['ssh_public_key'])
-                }
-            )
+        try:
+
+            for job in job_data:
+
+                # multiple dispatch trigger
+                self.sensor_service.dispatch(
+                    trigger="test.start_trigger",
+                    payload={
+                        "ssh_key": str(job['sshkeys']['ssh_public_key'])
+                    }
+                )
         except Exception as e:
             self.logger.exception("Failed to poll(): %s", str(e))
 
