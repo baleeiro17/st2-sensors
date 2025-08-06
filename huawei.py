@@ -1531,7 +1531,7 @@ def gera_proc_btv_nova_huawei(hostname_origem, hostname_destino):
                 hostname_origem, hostname_destino, depara, vlanmulticast, 50000)
 
         path = os.path.join(os.getcwd(), "anexos")
-        excel_path = os.path.join(path, f"{hostname_origem}-service-port.txt")
+        excel_path = os.path.join(path, f"{hostname_origem}-btv.txt")
 
         return send_file(excel_path, as_attachment=True)
     except Exception as e:
