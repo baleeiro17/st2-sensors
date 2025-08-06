@@ -1,0 +1,435 @@
+version: 1.0
+description: Vlans orquestra workflow.
+
+input:
+  - tunel_id
+
+tasks:
+
+  get_hostname_rsd:
+    action: swa.get_hostname_rsd tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() %>
+       publish: hostname_rsd=<% task(get_hostname_rsd).result.result %>
+       do:
+         - get_hostname_hl5
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar hostname RSD"
+          - situacao_task: false
+       do: change_job_status
+  
+  get_hostname_hl5:
+    action: swa.get_hostname_hl5 tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() %>
+       publish: hostname_hl5=<% task(get_hostname_hl5).result.result %>
+       do:
+         - create_session_hl5
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar hostname do HL5"
+          - situacao_task: false
+       do: change_job_status
+  
+  create_session_hl5:
+    action: swa.create_session tunel_id=<% ctx().tunel_id %> hostname=<% str(ctx().hostname_hl5) %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - valida_hl5_status
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao criar sessão do HL5"
+          - situacao_task: false
+       do: change_job_status
+  
+  valida_hl5_status:
+    action: swa.valida_hl5_status tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() %>
+       publish: hl5_status=<% task(valida_hl5_status).result.result %>
+       do:
+         - get_hl5_vendor
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar status do HL5"
+          - situacao_task: false
+          - fluxo_erro: "Erro inicial"
+       do: close_session_hl5
+  
+  get_hl5_vendor:
+    action: swa.get_vendor_hl4 tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% ctx().hl5_status = 'ativo' and succeeded() %>
+       publish: vendor_hl5=<% task(get_hl5_vendor).result.result %>
+       do:
+         - create_session
+     - when: <% ctx().hl5_status = 'nao ativo' and succeeded() %>
+       publish: vendor_hl5=<% task(get_hl5_vendor).result.result %>
+       do:
+         - create_session
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar vendor do HL5"
+          - situacao_task: false
+          - fluxo_erro: "Erro inicial"
+       do: close_session_hl5
+       
+  create_session:
+    action: swa.create_session tunel_id=<% ctx().tunel_id %> hostname=<% str(ctx().hostname_rsd) %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_loopback_hl5
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao criar sessão"
+          - situacao_task: false
+          - fluxo_erro: "Erro inicial"
+       do: close_session_hl5
+
+  get_loopback_hl5:
+    action: swa.get_loopback_hl5 tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() %>
+       publish: loop_hl5=<% task(get_loopback_hl5).result.result %>
+       do:
+         - get_vlans_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar loopback HL5"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  get_vlans_vpn:
+    action: swa.get_vlans_vpn tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'huawei' %>
+       publish: vlans_tasks_vpn=<% task(get_vlans_vpn).result.result %>
+       do:
+         - check_vlan_vpn_huawei
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'cisco' %>
+       publish: vlans_tasks_vpn=<% task(get_vlans_vpn).result.result %>
+       do:
+         - check_vlan_vpn_cisco
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'nokia' %>
+       publish: vlans_tasks_vpn=<% task(get_vlans_vpn).result.result %>
+       do:
+         - check_vlan_vpn_nokia
+     - when: <% succeeded() and ctx().hl5_status = 'nao ativo' %>
+       publish: vlans_tasks_vpn=<% task(get_vlans_vpn).result.result %>
+       do:
+         - check_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar vlans VPN"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_vpn:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.check_vlan_vpn tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_vlans_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar VPNs vlans"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_vpn_nokia:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.check_vlan_vpn_hl4_nokia tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_vlans_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar VPNs vlans"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_vpn_cisco:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.check_vlan_vpn_hl4_cisco tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_vlans_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar VPNs vlans"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_vpn_huawei:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.check_vlan_vpn_hl4_huawei tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_vlans_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar VPNs vlans"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  get_vlans_internet:
+    action: swa.get_vlans_internet tunel_id=<% ctx().tunel_id %>
+    next:
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'huawei' %>
+       publish: vlans_tasks_internet=<% task(get_vlans_internet).result.result %>
+       do:
+         - check_vlan_internet_huawei
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'cisco' %>
+       publish: vlans_tasks_internet=<% task(get_vlans_internet).result.result %>
+       do:
+         - check_vlan_internet_cisco
+     - when: <% succeeded() and ctx().hl5_status = 'ativo' and ctx().vendor_hl5 = 'nokia' %>
+       publish: vlans_tasks_internet=<% task(get_vlans_internet).result.result %>
+       do:
+         - check_vlan_internet_nokia
+     - when: <% succeeded() and ctx().hl5_status = 'nao ativo' %>
+       publish: vlans_tasks_internet=<% task(get_vlans_internet).result.result %>
+       do:
+         - check_vlan_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar vlans INTERNET"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+
+  check_vlan_internet_huawei:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.check_vlan_internet_hl4_huawei tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_porta_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar Internet vlans Huawei"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_internet_cisco:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.check_vlan_internet_hl4_cisco tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_porta_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar Internet vlans Cisco"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_internet_nokia:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.check_vlan_internet_hl4_nokia tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_porta_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar Internet vlans Nokia"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_vlan_internet:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.check_vlan_internet tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_porta_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar Internet vlans Nokia"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+     
+  get_porta_vlan_vpn:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.get_porta_vlan_vpn_nokia tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_epipe_vlan_vpn
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar portas VPN"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  get_epipe_vlan_vpn:
+    with: 
+      items: <% ctx(vlans_tasks_vpn) %>
+      concurrency: 1
+    action: swa.get_epipe_vlan tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_porta_vlan_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar portas VPN"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+     
+  get_porta_vlan_internet:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.get_porta_vlan_internet_nokia tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_epipe_vlan_internet
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar portas INTERNET"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  get_epipe_vlan_internet:
+    with: 
+      items: <% ctx(vlans_tasks_internet) %>
+      concurrency: 1
+    action: swa.get_epipe_vlan tunel_id=<% ctx().tunel_id %> vlan=<% item() %>
+    next:
+     - when: <% succeeded() %>
+       do:
+         - get_loopback_rsd
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar portas VPN"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  get_loopback_rsd:
+    action: swa.get_loopback_rsd_nokia tunel_id=<% ctx().tunel_id %> 
+    next:
+     - when: <% succeeded() %>
+       publish: loop_rsd=<% task(get_loopback_rsd).result.result %>
+       do:
+         - check_ldp
+     - when: <% failed() %>
+       publish: 
+          - current_task: "Erro ao validar loopback RSD"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+       do: close_session_hl5
+  
+  check_ldp:
+    action: swa.check_ldp_nokia_rsd tunel_id=<% ctx().tunel_id %> loopback=<% str(ctx().loop_hl5) %>
+    next:
+      - when: <% succeeded() %>
+        do:
+          - get_sdp_rsd
+      - when: <% failed() %>
+        publish: 
+          - current_task: "Erro ao validar LDP RSD"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+        do: close_session_hl5
+  
+  get_sdp_rsd:
+    action: swa.get_sdp_nokia_rsd tunel_id=<% ctx().tunel_id %> loopback=<% str(ctx().loop_hl5) %>
+    next:
+      - when: <% succeeded() %>
+        do:
+          - create_proc_rsd
+      - when: <% failed() %>
+        publish: 
+          - current_task: "Erro ao validar SDP RSD"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+        do: close_session_hl5
+
+  create_proc_rsd:
+    action: swa.create_proc_rsd_nokia tunel_id=<% ctx().tunel_id %>
+    next: 
+      - when: <% succeeded() %>
+        publish: 
+          - current_task: "Concluído"
+          - situacao_task: true
+          - fluxo_erro: "Erro final"
+        do:
+          - close_session_hl5
+      - when: <% failed() %>
+        publish: 
+          - current_task: "Erro ao validar PROC RSD"
+          - situacao_task: false
+          - fluxo_erro: "Erro final"
+        do: close_session_rsd
+
+  close_session_hl5:
+    action: swa.close_session tunel_id=<% ctx().tunel_id %> hostname=<% str(ctx().hostname_hl5) %>
+    next: 
+      - when: <% ctx().fluxo_erro = 'Erro final' %>
+        do:
+          - close_session_rsd
+      - when: <% ctx().fluxo_erro = 'Erro inicial' %>
+        do:
+          - change_job_status
+      - when: <% failed() %>
+        publish: 
+          - current_task: "Erro ao fechar a sessão"
+          - situacao_task: false
+        do: change_job_status
+  
+  close_session_rsd:
+    action: swa.close_session tunel_id=<% ctx().tunel_id %> hostname=<% str(ctx().hostname_rsd) %>
+    next: 
+      - when: <% succeeded() %>
+        do:
+          - change_job_status
+      - when: <% failed() %>
+        publish: 
+          - current_task: "Erro ao fechar a sessão do HL5"
+          - situacao_task: false
+        do: change_job_status
+  
+  change_job_status:
+    action: swa.change_job_status_action tunel_id=<% ctx().tunel_id %> job_status=<% ctx().current_task %> situacao=<% ctx().situacao_task %>
