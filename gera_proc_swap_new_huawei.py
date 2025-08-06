@@ -7,7 +7,7 @@ import re
 def get_slot_porta_destino(porta, slot, deparas):
     for depara in deparas:
         if depara.split("_")[0].split("/")[1] == porta and depara.split("_")[0].split("/")[0] == slot:
-            return "0/" + depara.split("_")[1].split("/")[0], depara.split("_")[1].split("/")[1]
+            return "0/" + depara.split("_")[1].split("/")[0] + "/" + depara.split("_")[1].split("/")[1]
 
 def posicao_config_bbs(values):
     index = 0
@@ -92,13 +92,18 @@ def find_service_port(value):
 
 def find_porta(value):
 
-    pattern = re.compile('gpon (\d+/\d+/\d+)')
+    pattern = re.compile('gpon (\d+)/(\d+)/(\d+)')
 
     group = pattern.findall(value)
     if group == []:
         return {'valid': False, 'value': ''}
     else:
-        return {'valid': True, 'value': group[0]}
+        return {
+            'valid': True, 
+            'value_slot': group[0][1], 
+            'value_port': group[0][2], 
+            'value': group[0][0] + "/" + group[0][1] + "/" + group[0][2]
+        }
 
 def get_param_alteracao_add(output):
 
@@ -144,7 +149,7 @@ def mapeamento_porta_service_port(values):
 def get_porta_slot_origem(porta, slot, deparas):
     for depara in deparas:
         if depara.split("_")[1].split("/")[1] == porta and depara.split("_")[1].split("/")[0] == slot:
-            return depara.split("_")[1].split("/")[0], depara.split("_")[1].split("/")[1]
+            return depara.split("_")[0].split("/")[0], depara.split("_")[0].split("/")[1]
 
 def checa_igmp(output):   
     pattern = re.compile('igmp user add')
@@ -210,7 +215,7 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
 
                 if porta.split("/")[0] == slot:
 
-                    slotorigem, portaorigem = get_porta_slot_origem(porta, slot, depara)
+                    slotorigem, portaorigem = get_porta_slot_origem(porta.split("/")[1], slot, depara)
 
                     # função que chama a output do huawei
                     output = Controle.gera_slot_info(
@@ -218,10 +223,13 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
                         slotorigem, portaorigem
                     )
 
+                    if output == "":
+                        continue
+
                     nova_output = output.splitlines()
 
-                    inicio = posicao_config_bbs(output)
-                    fim = posicao_final_config_bbs(output)
+                    inicio = posicao_config_bbs(nova_output)
+                    fim = posicao_final_config_bbs(nova_output)
 
                     services_porta = mapeamento_porta_service_port(nova_output[inicio:fim])
 
@@ -233,15 +241,14 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
                         if serviceid['valid'] and portas_service['valid']:
 
                             porta_destino = get_slot_porta_destino(
-                                portas_service['value'].split("/")[1],
-                                portas_service['value'].split("/")[0],
+                                portas_service['value_port'],
+                                portas_service['value_slot'],
                                 depara
                             )
 
                             config = serviceporta.split(" " + serviceid['value'] + " ")[0] + " " + str(serviceport) \
                                 + " " + serviceporta.split(" " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[0] + " " + porta_destino \
-                                + " " + serviceporta.split(" " + serviceid['value'] + " ")[
-                                1].split(" " + porta['value'] + " ")[1]
+                                + " " + serviceporta.split(" " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
                             
                             file.write(config + "\n")
 
@@ -269,7 +276,7 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
 
                 if porta.split("/")[0] == slot:
 
-                    slotorigem, portaorigem = get_porta_slot_origem(porta, slot, depara)
+                    slotorigem, portaorigem = get_porta_slot_origem(porta.split("/")[1], slot, depara)
 
                     # função que chama a output do huawei
                     output = Controle.gera_slot_info(
@@ -277,10 +284,13 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
                         slotorigem, portaorigem
                     )
 
+                    if output == "":
+                        continue
+
                     nova_output = output.splitlines()
 
-                    inicio = posicao_config_bbs(output)
-                    fim = posicao_final_config_bbs(output)
+                    inicio = posicao_config_bbs(nova_output)
+                    fim = posicao_final_config_bbs(nova_output)
 
                     services_porta = mapeamento_porta_service_port(nova_output[inicio:fim])
 
