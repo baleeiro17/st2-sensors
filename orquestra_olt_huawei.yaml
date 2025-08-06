@@ -1,0 +1,261 @@
+version: 1.0
+description: SWAP Orquestra Workflow Huawei.
+
+input:
+  - swap_id
+  - hostname
+  - tipo
+
+tasks:
+  
+  get_controle:
+    action: swap.get_controle swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - controle: <% task(get_controle).result.result %>
+          - current_task: "Em processamento"
+          - situacao_task: "Em processamento"
+        do: change_job_coleta
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar informações de controle"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  change_job_coleta:
+    action: swap.change_job_status swap_id=<% ctx().swap_id %> mensagem=<% ctx().current_task %> situacao=<% ctx().situacao_task %>
+    next:
+      - when: <% ctx().controle = 'Pendente Controle' %>
+        do:
+          - valida_coleta_cliente
+      - when: <% ctx().controle = 'Pendente Interface' %>
+        do:
+          - coleta_info_slot
+      - when: <% ctx().controle = 'Pendente Config' %>
+        do:
+          - coleta_info_slot
+      - when: <% ctx().controle = 'Pendente Configuração' %>
+        do:
+          - valida_hostname_olt
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao realizar coleta"
+          - situacao_task: "Erro"
+        do:
+          - change_job_final
+  
+  valida_coleta_cliente:
+    action: swap.valida_coleta_cliente swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% task(valida_coleta_cliente).result.result = 'Sim' %>
+        do: get_vendor_hl4
+      - when: <% task(valida_coleta_cliente).result.result = 'Nao' %>
+        do: coleta_cliente
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar clientes da OLT"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_cliente:
+    action: swap.coleta_cliente swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: get_vendor_hl4
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar clientes da OLT"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  get_vendor_hl4:
+    action: swap.get_vendor_hl4 swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% task(get_vendor_hl4).result.result = 'huawei' %>
+        do: coleta_vlan_voip
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vendor do hl4"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_voip:
+    action: swap.coleta_vlan_voip swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_multicast
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan VOIP"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_multicast:
+    action: swap.coleta_vlan_multicast swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_unicast
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan MULTICAST"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_unicast:
+    action: swap.coleta_vlan_unicast swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_b2b_internet
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan UNICAST"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_b2b_internet:
+    action: swap.coleta_vlan_b2b_internet swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_b2b_vpn
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan B2B INTERNET"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_b2b_vpn:
+    action: swap.coleta_vlan_b2b_vpn swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_b2b_sip
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan B2B VPN"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_b2b_sip:
+    action: swap.coleta_vlan_b2b_sip swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: coleta_vlan_rede
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan B2B SIP"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_vlan_rede:
+    action: swap.coleta_vlan_rede swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - current_task: "Aguardando depara"
+          - situacao_task: "Aguardando depara"
+        do: change_job_final
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar vlan REDE"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_info_slot:
+    action: swap.coleta_info_slot swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() and ctx().controle = 'Pendente Interface' %>
+        publish: slot_tasks=<% task(coleta_info_slot).result.result %>
+        do: coleta_info_interface
+      - when: <% succeeded() and ctx().controle = 'Pendente Config' %>
+        publish: slot_tasks=<% task(coleta_info_slot).result.result %>
+        do: gera_config_interface
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar clientes da OLT"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  coleta_info_interface:
+    with:
+      items: <% ctx(slot_tasks) %>
+      concurrency: 1
+    action: swap.coleta_info_interface swap_id=<% ctx().swap_id %> slot=<% item() %>
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - current_task: "Pendente Config"
+          - situacao_task: "Pendente Config"
+        do: change_job_final
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar Service Port"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  gera_config_interface:
+    with:
+      items: <% ctx(slot_tasks) %>
+      concurrency: 3
+    action: swap.gera_config_interface swap_id=<% ctx().swap_id %> slot=<% item() %>
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - current_task: "Concluído Procedimento"
+          - situacao_task: "Concluído Procedimento"
+        do: change_job_final
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar config service port"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  valida_hostname_olt:
+    action: swap.valida_hostname_olt swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: gera_configuracao_interface
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar Hostname OLT"
+          - situacao_task: "Erro"
+        do: change_job_final
+
+  gera_configuracao_interface:
+    action: swap.gera_configuracao_interface swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: gera_configuracao_service
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro realizar configuracao interface"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  gera_configuracao_service:
+    action: swap.gera_configuracao_service swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        do: gera_configuracao_btv
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro realizar configuracao service"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  gera_configuracao_btv:
+    action: swap.gera_configuracao_btv swap_id=<% ctx().swap_id %>
+    next:
+      - when: <% succeeded() %>
+        publish:
+          - current_task: "Concluído Configuração"
+          - situacao_task: "Concluído Configuração"
+        do: change_job_final
+      - when: <% failed() %>
+        publish:
+          - current_task: "Erro ao validar config service port"
+          - situacao_task: "Erro"
+        do: change_job_final
+  
+  change_job_final:
+    action: swap.change_job_status swap_id=<% ctx().swap_id %> mensagem=<% ctx().current_task %> situacao=<% ctx().situacao_task %>
+
