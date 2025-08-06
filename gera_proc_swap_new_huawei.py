@@ -351,27 +351,6 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
                         hostname_origem, hostname_destino,
                         slotorigem, portaorigem
                     )
-
-                    nova_output = output.splitlines()
-
-                    inicio = posicao_config_bbs(output)
-                    fim = posicao_final_config_bbs(output)
-
-                    services_porta = mapeamento_porta_service_port(nova_output[inicio:fim])
-
-                    for serviceporta in services_porta:
-
-                        serviceid = find_service_port(serviceporta)
-                        portas_service = find_porta(serviceporta)
-
-                        if serviceid['valid'] and portas_service['valid']:
-
-                            mapeamentos.append({
-                                'service_port': serviceid['value'],
-                                'service_port_para': str(serviceport)
-                            })
-
-                            serviceport += 1
                     
                     inicio = posicao_config_btv(nova_output)
 
@@ -393,4 +372,5 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
                             for line in config_final.splitlines():
                                 if checa_igmp_member(line):
                                     file.write(line + "\n")
+                                    
     return 
