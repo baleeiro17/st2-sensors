@@ -1501,10 +1501,34 @@ def gera_proc_services_nova_huawei(hostname_origem, hostname_destino):
 
         depara = Controle.get_controle_de_para_by_hostname(hostname_destino, hostname_origem)
 
-        if vendor == 'Huawei':
+        if vendor == 'huawei':
 
             gera_proc_service_port_huawei_new(
                 hostname_origem, hostname_destino, depara, 50000)
+
+        path = os.path.join(os.getcwd(), "anexos")
+        excel_path = os.path.join(path, f"{hostname_origem}-service-port.txt")
+
+        return send_file(excel_path, as_attachment=True)
+    except Exception as e:
+        print(e)
+        return {}, 404
+
+# testes nova versão proc
+@huawei_bp.route('/gera/proc/btv/nova/origem/<string:hostname_origem>/destino/<string:hostname_destino>',  methods=['GET'])
+def gera_proc_btv_nova_huawei(hostname_origem, hostname_destino):
+    try:
+        vendor = Controle.get_controle_by_vendor_hostname_origem(hostname_origem, hostname_destino)
+
+        depara = Controle.get_controle_de_para_by_hostname(hostname_destino, hostname_origem)
+
+        vlanmulticast = Controle.get_controle_by_hostname_vlan_multicast(
+            hostname_origem, hostname_destino)
+
+        if vendor == 'huawei':
+
+            gera_proc_btv_huawei_new(
+                hostname_origem, hostname_destino, depara, vlanmulticast, 50000)
 
         path = os.path.join(os.getcwd(), "anexos")
         excel_path = os.path.join(path, f"{hostname_origem}-service-port.txt")
