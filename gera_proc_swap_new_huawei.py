@@ -268,6 +268,8 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
 
     mapeamentos = []
 
+    services_btv = []
+
     with open(excel_path, "w") as file:
 
         for slot in slots:
@@ -328,6 +330,8 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
                             for line in config_final.splitlines():
                                 if checa_igmp(line):
                                     file.write(line + "\n")
+                            
+                            services_btv.append(mapeamento['service_port_para'])
 
                             for line in config_final.splitlines():
 
@@ -338,39 +342,7 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
         # configurações de vlan multicast
         file.write("multicast-vlan " + vlan_multicast + "\n")
 
-        for slot in slots:
+        for service_btv in services_btv:
+            file.write("igmp multicast-vlan member service-port " + service_btv + "\n")
 
-            for porta in portas:
-
-                if porta.split("/")[0] == slot:
-
-                    slotorigem, portaorigem = get_porta_slot_origem(porta, slot, depara)
-
-                    # função que chama a output do huawei
-                    output = Controle.gera_slot_info(
-                        hostname_origem, hostname_destino,
-                        slotorigem, portaorigem
-                    )
-                    
-                    inicio = posicao_config_btv(nova_output)
-
-                    fim = posicao_final_config_btv(nova_output)
-
-                    outros = mapeamento_outros(nova_output[inicio:fim])
-
-                    for mapeamento in mapeamentos:
-
-                        config_final = cria_procedimento_btv(
-                            nova_output[inicio:fim],
-                            outros,
-                            mapeamento['service_port'],
-                            mapeamento['service_port_para']
-                        )
-
-                        if len(config_final) > 0:
-
-                            for line in config_final.splitlines():
-                                if checa_igmp_member(line):
-                                    file.write(line + "\n")
-                                    
     return 
