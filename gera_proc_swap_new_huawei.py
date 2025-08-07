@@ -246,9 +246,9 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
                                 depara
                             )
 
-                            config = serviceporta.split(" " + serviceid['value'] + " ")[0] + " " + str(serviceport) \
-                                + " " + serviceporta.split(" " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[0] + " " + porta_destino \
-                                + " " + serviceporta.split(" " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
+                            config = "service-port " + serviceporta.split("service-port " + serviceid['value'] + " ")[0] + str(serviceport) \
+                                + " " + serviceporta.split("service-port " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[0] + " " + porta_destino \
+                                + " " + serviceporta.split("service-port " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
                             
                             file.write(config + "\n")
 
