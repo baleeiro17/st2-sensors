@@ -254,7 +254,7 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
 
                             serviceport += 1
 
-                    file.write(config + "\n")
+                    file.write("\n")
 
     return
 
