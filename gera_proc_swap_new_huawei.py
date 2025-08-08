@@ -248,13 +248,70 @@ def gera_proc_service_port_huawei_new(hostname_origem, hostname_destino, depara,
 
                             config = "service-port " + serviceporta.split("service-port " + serviceid['value'] + " ")[0] + str(serviceport) \
                                 + " " + serviceporta.split("service-port " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[0] + " " + porta_destino \
-                                + " " + serviceporta.split("service-port " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
+                                + " " + serviceporta.split("service-port "+ serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
                             
                             file.write(config + "\n")
 
                             serviceport += 1
 
                     file.write("\n")
+
+    return
+
+def gera_proc_service_port_huawei_new_aplicacao(hostname_origem, hostname_destino, depara, serviceport):
+
+
+    slots = mostra_slots_depara_depois(depara)
+    portas = mostra_portas_slots_depara_depois(depara)
+
+    aplicacao = []
+
+    for slot in slots:
+
+        for porta in portas:
+
+                if porta.split("/")[0] == slot:
+
+                    slotorigem, portaorigem = get_porta_slot_origem(porta.split("/")[1], slot, depara)
+
+                    # função que chama a output do huawei
+                    output = Controle.gera_slot_info(
+                        hostname_origem, hostname_destino,
+                        slotorigem, portaorigem
+                    )
+
+                    if output == "":
+                        continue
+
+                    nova_output = output.splitlines()
+
+                    inicio = posicao_config_bbs(nova_output)
+                    fim = posicao_final_config_bbs(nova_output)
+
+                    services_porta = mapeamento_porta_service_port(nova_output[inicio:fim])
+
+                    for serviceporta in services_porta:
+
+                        serviceid = find_service_port(serviceporta)
+                        portas_service = find_porta(serviceporta)
+
+                        if serviceid['valid'] and portas_service['valid']:
+
+                            porta_destino = get_slot_porta_destino(
+                                portas_service['value_port'],
+                                portas_service['value_slot'],
+                                depara
+                            )
+
+                            config = "service-port " + serviceporta.split("service-port " + serviceid['value'] + " ")[0] + str(serviceport) \
+                                + " " + serviceporta.split("service-port " + serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[0] + " " + porta_destino \
+                                + " " + serviceporta.split("service-port "+ serviceid['value'] + " ")[1].split(" " + portas_service['value'] + " ")[1]
+                            
+                            aplicacao.append(config + "\n")
+
+                            serviceport += 1
+
+                    aplicacao.append("\n")
 
     return
 
@@ -344,5 +401,91 @@ def gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlan_mul
 
         for service_btv in services_btv:
             file.write("igmp multicast-vlan member service-port " + service_btv + "\n")
+
+    return 
+
+def gera_proc_btv_huawei_new_aplicacao(hostname_origem, hostname_destino, depara, vlan_multicast, serviceport):
+
+    slots = mostra_slots_depara_depois(depara)
+    portas = mostra_portas_slots_depara_depois(depara)
+
+    mapeamentos = []
+
+    services_btv = []
+
+    aplicacao = []
+
+    for slot in slots:
+
+        for porta in portas:
+
+                if porta.split("/")[0] == slot:
+
+                    slotorigem, portaorigem = get_porta_slot_origem(porta.split("/")[1], slot, depara)
+
+                    # função que chama a output do huawei
+                    output = Controle.gera_slot_info(
+                        hostname_origem, hostname_destino,
+                        slotorigem, portaorigem
+                    )
+
+                    if output == "":
+                        continue
+
+                    nova_output = output.splitlines()
+
+                    inicio = posicao_config_bbs(nova_output)
+                    fim = posicao_final_config_bbs(nova_output)
+
+                    services_porta = mapeamento_porta_service_port(nova_output[inicio:fim])
+
+                    for serviceporta in services_porta:
+
+                        serviceid = find_service_port(serviceporta)
+                        portas_service = find_porta(serviceporta)
+
+                        if serviceid['valid'] and portas_service['valid']:
+
+                            mapeamentos.append({
+                                'service_port': serviceid['value'],
+                                'service_port_para': str(serviceport)
+                            })
+
+                            serviceport += 1
+                    
+                    inicio = posicao_config_btv(nova_output)
+
+                    fim = posicao_final_config_btv(nova_output)
+
+                    outros = mapeamento_outros(nova_output[inicio:fim])
+
+                    for mapeamento in mapeamentos:
+
+                        config_final = cria_procedimento_btv(
+                            nova_output[inicio:fim],
+                            outros,
+                            mapeamento['service_port'],
+                            mapeamento['service_port_para']
+                        )
+
+                        if len(config_final) > 0:
+
+                            for line in config_final.splitlines():
+                                if checa_igmp(line):
+                                    aplicacao.append(line + "\n")
+                            
+                            services_btv.append(mapeamento['service_port_para'])
+
+                            for line in config_final.splitlines():
+
+                                if checa_igmp_member(line) == False and \
+                                    checa_igmp(line) == False and checa_multicast_vlan(line) == False:
+                                    aplicacao.append(" " + line + "\n") 
+        
+        # configurações de vlan multicast
+        aplicacao.append("multicast-vlan " + vlan_multicast + "\n")
+
+        for service_btv in services_btv:
+            aplicacao.append("igmp multicast-vlan member service-port " + service_btv + "\n")
 
     return 
