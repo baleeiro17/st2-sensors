@@ -797,7 +797,8 @@ def gera_proc_serviceport_huawei(hostname_origem, hostname_destino):
 
             if tipo_olt:
                 
-                gera_proc_service_port_huawei(clientes, hostname_origem, depara)
+                gera_proc_service_port_huawei_new(
+                    hostname_origem, hostname_destino, depara, 50000)
 
             else:
                 
@@ -851,7 +852,7 @@ def gera_proc_btv_huawei_rota(hostname_origem, hostname_destino):
                 vlanmulticast = Controle.get_controle_by_hostname_vlan_multicast(
             hostname_origem, hostname_destino)
                 
-                gera_proc_btv_huawei(clientes, hostname_origem, vlanmulticast, depara)
+                gera_proc_btv_huawei_new(hostname_origem, hostname_destino, depara, vlanmulticast, 50000)
 
             else:
 
@@ -863,7 +864,7 @@ def gera_proc_btv_huawei_rota(hostname_origem, hostname_destino):
         elif vendor == "nokia-7342" or vendor == 'nokia-7302':
 
             vlanmulticast = Controle.get_controle_by_hostname_vlan_multicast(
-            hostname_origem, hostname_destino)
+                hostname_origem, hostname_destino)
 
             gera_proc_btv_nokia(clientes, hostname_origem, vlanmulticast)
 
