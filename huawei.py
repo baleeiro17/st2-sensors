@@ -19,7 +19,8 @@ from utils.valida_config_serviceport import valida_config_serviceport
 from utils.valida_config_tv import valida_config_tv
 from utils.valida_onts import valida_onts_slot_porta
 from utils.get_hl4_vendor import get_hl4_vendor
-from utils.gera_proc_swap_new_huawei import gera_proc_btv_huawei_new, gera_proc_service_port_huawei_new
+from utils.gera_proc_swap_new_huawei import gera_proc_btv_huawei_new, \
+    gera_proc_service_port_huawei_new, gera_proc_service_port_huawei_new_aplicacao, gera_proc_btv_huawei_new_aplicacao
 from utils.relatorios_huawei import relatorios_erros_encontrados, gera_relatorio_falta_config_clientes
 import os
 import pandas as pd
@@ -979,7 +980,8 @@ def gera_proc_aplicacao_services_huawei(hostname_origem, hostname_destino):
 
             if tipo_olt:
                 
-                aplicacao = gera_proc_service_port_huawei_aplicacao(clientes, hostname_origem, depara)
+                aplicacao = gera_proc_service_port_huawei_new_aplicacao(
+                    hostname_origem, hostname_destino, depara, 50000)
 
             else:
 
@@ -1040,7 +1042,8 @@ def gera_proc_aplicacao_btv_huawei_rota(hostname_origem, hostname_destino):
 
             if tipo_olt:
 
-                aplicacao = gera_proc_btv_aplicacao_huawei(clientes, hostname_origem, vlanmulticast, depara)
+                aplicacao = gera_proc_btv_huawei_new_aplicacao(
+                    hostname_origem, hostname_destino, depara, vlanmulticast, 50000)
             
             else:
 
